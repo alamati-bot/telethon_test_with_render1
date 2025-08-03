@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>محول رسائل Telegram</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 2.5em;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 1.8em;
+        }
+
+        h2 {
+            color: #555;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+            text-align: right;
+        }
+
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+            text-align: center;
+        }
+
+        input[type="text"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-right: 4px solid #c33;
+        }
+
+        .success {
+            background: #efe;
+            color: #363;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-right: 4px solid #363;
+        }
+
+        .info {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-right: 4px solid #1976d2;
+        }
+
+        .status {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+
+        .status h3 {
+            color: #495057;
+            margin-bottom: 10px;
+        }
+
+        .status p {
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .phone-format {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            h1 {
+                font-size: 1.5em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">📱</div>
+        <h1>محول رسائل Telegram</h1>
+        
+        {% if error %}
+        <div class="error">
+            <strong>خطأ:</strong> {{ error }}
+            <br><small>يرجى التحقق من المدخلات والمحاولة مرة أخرى</small>
+        </div>
+        {% endif %}
+
+        {% if success %}
+        <div class="success">
+            <strong>نجح:</strong> {{ success }}
+            {% if "تم إرسال كود التحقق" in success %}
+            <br><small>تحقق من رسائل SMS أو Telegram على هاتفك</small>
+            <br><small>انتظر قليلاً ثم أدخل الكود</small>
+            <br><small>إذا لم تستلم الكود، اضغط "إرسال كود التحقق" مرة أخرى</small>
+            {% elif "تم تسجيل الدخول بنجاح" in success %}
+            <br><small>سيتم تحويل جميع الرسائل تلقائياً</small>
+            <br><small>يمكنك إغلاق هذه الصفحة</small>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if show_password %}
+        <div class="info">
+            <strong>معلومات:</strong> يرجى إدخال كلمة المرور للوصول إلى النظام
+        </div>
+        
+        <form method="post" action="/login">
+            <div class="form-group">
+                <h2>أدخل كلمة المرور</h2>
+                <input type="password" name="admin_password" placeholder="كلمة المرور" required>
+            </div>
+            <button type="submit" id="loginButton">
+                <span class="loading" id="loading" style="display: none;"></span>
+                تسجيل الدخول
+            </button>
+        </form>
+        {% elif show_code and is_authenticated %}
+        <div class="info">
+            <strong>معلومات:</strong> يرجى إدخال كود التحقق المرسل إلى الرقم +963980907351
+        </div>
+        
+        {% if error %}
+        <div class="error">
+            <strong>خطأ:</strong> {{ error }}
+            <br><small>يرجى التحقق من الكود والمحاولة مرة أخرى</small>
+        </div>
+        {% endif %}
+        
+        {% if success %}
+        <div class="success">
+            <strong>نجح:</strong> {{ success }}
+            <br><small>تحقق من رسائل SMS أو Telegram على هاتفك</small>
+            <br><small>انتظر قليلاً ثم أدخل الكود</small>
+        </div>
+        {% endif %}
+        
+        <form method="post" action="/verify_code">
+            <div class="form-group">
+                <h2>أدخل كود التحقق</h2>
+                <input type="text" name="code" placeholder="12345" required maxlength="5">
+                <div class="phone-format">أدخل الكود المكون من 5 أرقام المرسل إلى هاتفك</div>
+            </div>
+            <button type="submit" id="confirmButton">
+                <span class="loading" id="loading" style="display: none;"></span>
+                تأكيد وتسجيل الدخول
+            </button>
+        </form>
+        {% elif not show_code and is_authenticated %}
+        <div class="info">
+            <strong>معلومات:</strong> سيتم تحويل جميع الرسائل الواردة من القناة المحددة إلى الحساب المحدد
+        </div>
+        
+        {% if success %}
+        <div class="success">
+            <strong>نجح:</strong> {{ success }}
+            {% if "تم الاتصال بجلسة نشطة" in success or has_active_session %}
+            <br><small>سيتم تحويل جميع الرسائل تلقائياً</small>
+            <br><small>يمكنك إغلاق هذه الصفحة</small>
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        {% if error or not has_active_session %}
+        <div class="error">
+            <strong>تنبيه:</strong> {{ error if error else "لا توجد جلسة نشطة، يرجى إرسال كود التحقق" }}
+        </div>
+        
+        <form method="post" action="/auto_send_code">
+            <button type="submit" id="autoSendButton">
+                <span class="loading" id="loading" style="display: none;"></span>
+                إرسال كود التحقق تلقائيًا
+            </button>
+        </form>
+        {% endif %}
+        {% endif %}
+
+        <div class="status">
+            <h3>حالة النظام</h3>
+            <p>✅ التطبيق يعمل بشكل طبيعي</p>
+            <p>📡 جاهز لاستقبال الرسائل</p>
+            <p>🔄 سيتم تحويل جميع الرسائل تلقائياً</p>
+            {% if show_code %}
+            <p>📱 تم إرسال كود التحقق إلى هاتفك</p>
+            <p>⏳ انتظر الكود ثم أدخله في الحقل أعلاه</p>
+            {% else %}
+            <p>📝 أدخل رقم هاتفك لبدء العملية</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        // إظهار مؤشر التحميل عند النقر على الأزرار
+        document.addEventListener('DOMContentLoaded', function() {
+            const sendButton = document.getElementById('sendButton');
+            const confirmButton = document.getElementById('confirmButton');
+            const loginButton = document.getElementById('loginButton');
+            const autoSendButton = document.getElementById('autoSendButton');
+            
+            if (sendButton) {
+                sendButton.addEventListener('click', function(e) {
+                    const phoneInput = document.querySelector('input[name="phone"]');
+                    if (phoneInput && phoneInput.value.trim() === '') {
+                        e.preventDefault();
+                        alert('يرجى إدخال رقم الهاتف');
+                        return;
+                    }
+                    
+                    const loading = this.querySelector('.loading');
+                    if (loading) {
+                        loading.style.display = 'inline-block';
+                        setTimeout(() => {
+                                              this.disabled = true;
+                                          }, 10);
+                        this.textContent = 'جاري الإرسال...';
+                    }
+                });
+            }
+            
+            if (confirmButton) {
+                confirmButton.addEventListener('click', function(e) {
+                    const codeInput = document.querySelector('input[name="code"]');
+                    if (codeInput && codeInput.value.trim() === '') {
+                        e.preventDefault();
+                        alert('يرجى إدخال كود التحقق');
+                        return;
+                    }
+                    
+                    const loading = this.querySelector('.loading');
+                    if (loading) {
+                        loading.style.display = 'inline-block';
+                        setTimeout(() => {
+                                              this.disabled = true;
+                                          }, 10);
+                        this.textContent = 'جاري التأكيد...';
+                    }
+                });
+            }
+            
+            if (autoSendButton) {
+                autoSendButton.addEventListener('click', function(e) {
+                    const loading = this.querySelector('.loading');
+                    if (loading) {
+                        loading.style.display = 'inline-block';
+                        setTimeout(() => {
+                                              this.disabled = true;
+                                          }, 10);
+                        this.textContent = 'جاري إرسال الكود...';
+                    }
+                });
+            }
+            
+            if (loginButton) {
+                loginButton.addEventListener('click', function(e) {
+                    const passwordInput = document.querySelector('input[name="admin_password"]');
+                    if (passwordInput && passwordInput.value.trim() === '') {
+                        e.preventDefault();
+                        alert('يرجى إدخال كلمة المرور');
+                        return;
+                    }
+                    
+                    const loading = this.querySelector('.loading');
+                    if (loading) {
+                        loading.style.display = 'inline-block';
+                        setTimeout(() => {
+                                              this.disabled = true;
+                                          }, 10);
+                        this.textContent = 'جاري تسجيل الدخول...';
+                    }
+                });
+            }
+        });
+
+        // إعادة توجيه تلقائي بعد النجاح
+        var successMessage = "{{ success or '' }}";
+        if (successMessage.includes("تم تسجيل الدخول بنجاح")) {
+            setTimeout(() => {
+                window.location.href = '/status';
+            }, 5000);
+        }
+        
+        // إظهار رسالة تأكيد بعد إرسال الكود
+        if (successMessage.includes("تم إرسال كود التحقق")) {
+            setTimeout(() => {
+                const codeInput = document.querySelector('input[name="code"]');
+                if (codeInput) {
+                    codeInput.focus();
+                }
+                // إظهار رسالة تأكيد إضافية
+                console.log('تم إرسال كود التحقق بنجاح! تحقق من هاتفك.');
+            }, 1000);
+        }
+        
+        // إظهار رسالة تأكيد عند تحميل الصفحة
+        if (successMessage.includes("تم إرسال كود التحقق")) {
+            console.log('تم إرسال كود التحقق بنجاح! تحقق من هاتفك.');
+        }
+    </script>
+</body>
+</html>
