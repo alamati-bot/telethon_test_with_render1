@@ -47,7 +47,7 @@ def main():
     # تشغيل التطبيق
     uvicorn.run(
         "app:app",
-        host="localhost",
+        host="0.0.0.0",
         port=8000,
         reload=False,
         log_level="info"
