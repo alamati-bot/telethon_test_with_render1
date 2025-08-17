@@ -10,6 +10,7 @@ import logging
 from dotenv import load_dotenv
 from typing import Dict, Optional, Union
 import re
+import datetime
 
 # إعداد logging
 logging.basicConfig(level=logging.INFO)
@@ -22,6 +23,10 @@ api_id = os.getenv('API_ID')
 api_hash = os.getenv('API_HASH')
 password = os.getenv('PASSWORD')
 source_channel = os.getenv('SOURCE_CHANNEL')
+receiver_account = os.getenv('RECEIVER_ACCOUNT')
+target_channel_id = os.getenv('TARGET_CHANNEL_ID')
+bot_ad = os.getenv('BOT_AD')
+
 
 if not api_id or not api_hash:
     raise ValueError("يجب تعيين API_ID و API_HASH في ملف .env")
@@ -32,8 +37,17 @@ if not password:
 if not source_channel:
     raise ValueError("يجب تعيين SOURCE_CHANNEL في ملف .env")
 
+if not receiver_account:
+    raise ValueError("يجب تعيين RECEIVER_ACCOUNT في ملف .env")
+
+if not target_channel_id:
+    raise ValueError("يجب تعيين TARGET_CHANNEL_ID في ملف .env")
+
 api_id = int(api_id)
 source_channel = int(source_channel)
+if receiver_account.lstrip('-').isdigit():
+    receiver_account = int(receiver_account)
+target_channel_id = int(target_channel_id)
 
 app = FastAPI(title="Telegram Message Forwarder", version="1.0.0")
 templates = Jinja2Templates(directory="templates")
@@ -42,6 +56,11 @@ templates = Jinja2Templates(directory="templates")
 session_path = "session"
 if not os.path.exists(session_path):
     os.makedirs(session_path)
+
+# إعداد مجلد التحميلات
+downloads_path = "downloads"
+if not os.path.exists(downloads_path):
+    os.makedirs(downloads_path)
 
 # تخزين العملاء والجلسات النشطة
 clients: Dict[str, TelegramClient] = {}
@@ -712,29 +731,132 @@ async def start_message_forwarding(client: TelegramClient, phone: str):
     """بدء عملية تحويل الرسائل"""
     try:
         logger.info(f"بدء تحويل الرسائل للمستخدم {phone}")
-        
-        # إعداد معالج الرسائل الجديدة
+
         @client.on(events.NewMessage(chats=source_channel))
         async def message_handler(event):
             try:
-                # تجاهل الرسائل المرسلة من الحساب نفسه
                 if event.is_private and event.sender_id == (await client.get_me()).id:
                     return
-                
-                # تحويل الرسالة إلى الحساب المحدد
-                to_id = '@alamati_info'  # يمكن تغيير هذا حسب الحاجة
-                
-                # استخدام forward بدلاً من إرسال رسالة جديدة
-                await client.forward_messages(to_id, event.message)
-                
-                logger.info(f"تم تحويل رسالة من {phone} من القناة {source_channel}")
-                
-            except Exception as e:
-                logger.error(f"خطأ في تحويل الرسالة: {e}")
 
+                message = event.message
+                to_id = receiver_account
+
+                # await client.forward_messages(source_channel, message)
+                
+                if message.photo : # and message.text == "العلامات التي سوف تصدر اليوم"
+                    logger.info("Cleaning downloads directory before new image download.")
+                    for filename in os.listdir(downloads_path):
+                        if filename.endswith('zip'):
+                            break
+                        file_path = os.path.join(downloads_path, filename)
+                        try:
+                            if os.path.isfile(file_path) or os.path.islink(file_path):
+                                os.unlink(file_path)
+                        except Exception as e:
+                            logger.error(f'Failed to delete {file_path}. Reason: {e}')
+                    
+                    logger.info("تم العثور على صورة بالوصف المطلوب، جاري تحميلها...")
+                    file_path = await message.download_media(file=downloads_path)
+                    logger.info(f"تم تحميل الصورة: {file_path}")
+                    return
+
+                if message.document:
+                    file_name = next((attr.file_name for attr in message.document.attributes if hasattr(attr, 'file_name')), None)
+                    if file_name == "علامات_كلية_الآداب_والعلوم_الانسانية_ـ_ف2_ـ_2024_2025.zip":
+                        logger.info("Cleaning downloads directory before new zip download.")
+                        for filename in os.listdir(downloads_path):
+                            if filename.endswith('zip'):
+                                file_path = os.path.join(downloads_path, filename)
+                                try:
+                                    if os.path.isfile(file_path) or os.path.islink(file_path):
+                                        os.unlink(file_path)
+                                except Exception as e:
+                                    logger.error(f'Failed to delete {file_path}. Reason: {e}')
+
+                        logger.info("تم العثور على ملف ZIP للعلامات، جاري تحميله وإرساله...")
+                        file_path = await message.download_media(file=downloads_path)
+                        logger.info(f"تم تحميل الملف: {file_path}")
+                        
+                        await client.send_file(to_id, file_path, caption="ملف العلامات")
+                        logger.info(f"تم إرسال الملف إلى {to_id}")
+
+                        try:
+                            os.remove(file_path)
+                            logger.info(f"تم حذف الملف المؤقت: {file_path}")
+                        except OSError as e:
+                            logger.error(f"خطأ في حذف الملف {file_path}: {e}")
+                        return
+                # logger.info(f"تم تحويل رسالة من {phone} من القناة {source_channel}")
+
+            except Exception as e:
+                logger.error(f"خطأ في معالجة الرسالة: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
+        
+        @client.on(events.NewMessage(chats=receiver_account))
+        async def receiver_message_handler(event):
+            if event.raw_text.strip() == 'تم':
+                logger.info(f"Received 'تم' from {receiver_account}. Looking for today's image.")
+                
+                try:
+                    today = datetime.date.today()
+                    latest_image_path = None
+                    latest_mtime = 0
+
+                    for filename in os.listdir(downloads_path):
+                        if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
+                            file_path = os.path.join(downloads_path, filename)
+                            mtime = os.path.getmtime(file_path)
+                            file_date = datetime.date.fromtimestamp(mtime)
+
+                            if file_date == today and mtime > latest_mtime:
+                                latest_image_path = file_path
+                                latest_mtime = mtime
+                    
+                    message_text = "تم إضافة علامات جديدة إلى بوت علاماتي 😍❤️"
+                    if latest_image_path:
+                        logger.info(f"Found latest image from today: {latest_image_path}")
+                        await client.send_file(target_channel_id, latest_image_path, caption=message_text)
+                        logger.info(f"Sent image to target channel {target_channel_id}")
+                    else:
+                        logger.info("No image from today found. Sending text message instead.")
+                        await client.send_message(target_channel_id, message_text)
+                        logger.info(f"Sent text-only message to target channel {target_channel_id}")
+
+                except Exception as e:
+                    logger.error(f"Error in receiver_message_handler: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+            message = event.message
+            if message.document:
+                    file_name = next((attr.file_name for attr in message.document.attributes if hasattr(attr, 'file_name')), None)
+                    if file_name == "marks.csv":
+                        logger.info("Cleaning downloads directory before new csv download.")
+                        for filename in os.listdir(downloads_path):
+                            if filename.endswith('csv'):
+                                file_path = os.path.join(downloads_path, filename)
+                                try:
+                                    if os.path.isfile(file_path) or os.path.islink(file_path):
+                                        os.unlink(file_path)
+                                except Exception as e:
+                                    logger.error(f'Failed to delete {file_path}. Reason: {e}')
+
+                        logger.info("تم العثور على ملف ZIP للعلامات، جاري تحميله وإرساله...")
+                        file_path = await message.download_media(file=downloads_path)
+                        logger.info(f"تم تحميل الملف: {file_path}")
+                        
+                        await client.send_file(bot_ad, file_path, caption="ملف العلامات")
+                        logger.info(f"تم إرسال الملف إلى {bot_ad}")
+
+                        try:
+                            os.remove(file_path)
+                            logger.info(f"تم حذف الملف المؤقت: {file_path}")
+                        except OSError as e:
+                            logger.error(f"خطأ في حذف الملف {file_path}: {e}")
+                        return
         # تشغيل العميل
         await client.run_until_disconnected()
-        
+
     except Exception as e:
         logger.error(f"خطأ في عملية تحويل الرسائل للمستخدم {phone}: {e}")
     finally:
