@@ -894,14 +894,15 @@ async def logout(phone: str):
 @app.on_event("shutdown")
 async def shutdown_event():
     """إغلاق جميع الجلسات عند إيقاف التطبيق"""
-    logger.info("إغلاق جميع الجلسات...")
-    for phone, client in clients.items():
-        try:
-            await client.disconnect()
-        except Exception as e:
-            logger.error(f"خطأ في إغلاق جلسة {phone}: {e}")
-    clients.clear()
-    active_sessions.clear()
+    pass
+    # logger.info("إغلاق جميع الجلسات...")
+    # for phone, client in clients.items():
+    #     try:
+    #         await client.disconnect()
+    #     except Exception as e:
+    #         logger.error(f"خطأ في إغلاق جلسة {phone}: {e}")
+    # clients.clear()
+    # active_sessions.clear()
 
 if __name__ == "__main__":
     import uvicorn
