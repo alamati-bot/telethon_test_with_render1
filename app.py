@@ -497,9 +497,13 @@ async def check_existing_sessions():
         logger.error(traceback.format_exc())
         return None
 
-@app.get("/health")
+@app.get("/health", include_in_schema=False)
 async def health_check():
     return {"status": "ok"}
+
+@app.head("/health", include_in_schema=False)
+async def health_check_head():
+    return ""
 
 async def auto_send_code():
     """إرسال كود التحقق تلقائيًا للرقم المحدد"""
