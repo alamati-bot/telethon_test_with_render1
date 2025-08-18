@@ -497,6 +497,10 @@ async def check_existing_sessions():
         logger.error(traceback.format_exc())
         return None
 
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
 async def auto_send_code():
     """إرسال كود التحقق تلقائيًا للرقم المحدد"""
     try:
