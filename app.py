@@ -786,6 +786,7 @@ async def start_message_forwarding(client: TelegramClient, phone: str):
                         logger.info(f"تم تحميل الملف: {file_path}")
                         
                         await client.send_file(to_id, file_path, caption="ملف العلامات")
+                        await client.send_file(target_channel_id, file_path, caption="لا تنسوا إخوانكم في غزة 🇵🇸")
                         logger.info(f"تم إرسال الملف إلى {to_id}")
 
                         try:
@@ -835,6 +836,17 @@ async def start_message_forwarding(client: TelegramClient, phone: str):
                     logger.error(f"Error in receiver_message_handler: {e}")
                     import traceback
                     logger.error(traceback.format_exc())
+
+            if event.raw_text.strip() == 'test':
+                logger.info(f"Received 'test' from {receiver_account}. Looking for today's image.")    
+                try:
+                    message_text = "working"
+                    await client.send_message(receiver_account, message_text)
+                except Exception as e:
+                    logger.error(f"Error in receiver_message_handler: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())            
+            
             message = event.message
             if message.document:
                     file_name = next((attr.file_name for attr in message.document.attributes if hasattr(attr, 'file_name')), None)
